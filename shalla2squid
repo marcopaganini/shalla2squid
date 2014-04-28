@@ -1,0 +1,98 @@
+#!/usr/bin/python
+"""shalla2squid - Convert shallalist format to squid external ACL format.
+
+This is a simple program to convert blacklists from the shallalist format
+(http://www.shallalist.de) into a format which can be readily used by
+the Squid proxy.
+
+The program is smart enough to remove "path duplications" in the lists.
+For example, squid won't like something like this:
+
+  .foo.bar.com
+  .moo.bar.com
+  .bar.com
+
+Because .bar.com already matches anything under the domain bar.com. Squid
+will (sadly) die if these conditions exist in the input files.
+
+The program will also prefix every line in the shalla list with a dot
+(squid requires a dot prefix to mean "everything under this domain".)
+
+Usage:
+  cat BL/<cat1>/domains BL<cat2>/domains... | shalla2squid >shalla_combined
+
+Inside squid, use:
+  acl shalla_combined dstdomain "/etc/squid3/combined"
+  http_access deny shalla_combined
+
+(C) Apr/2014 by Marco Paganini <paganini@paganini.net>
+"""
+
+import sys
+
+class DomainTree:
+  """Defines the domain tree abstraction."""
+  def __init__(self):
+    self.root = {}
+
+  def insert(self, domain):
+    """
+    Insert a new domain into the tree.
+
+    Returns:
+      True:  Domain was inserted
+      False: Domain was not inserted (usually because a more generic
+             subset of this domain already exists.)
+    """
+
+    parts = domain.split('.')
+    parts.reverse()
+    node = self.root
+
+    for ix in range(len(parts)):
+      part = parts[ix]
+
+      # No match? Add the rest
+      if not part in node:
+        for sub_ix in range(ix, len(parts)):
+          part = parts[sub_ix]
+          node[part] = {}
+          node = node[part]
+        return True
+
+      # Exists, and leaf, we're superset
+      if node[part] == {}:
+        return False
+
+      # Exists, not leaf, continue
+      prev_node = node
+      node = node[part]
+    prev_node[part] = {}
+    return True
+
+  def print_tree(self, start=None, domain=None):
+    """Print the entire tree."""
+    if start is None:
+      start = self.root
+    if domain is None:
+      domain = []
+    if start == {}:
+      print_domain = list(domain)
+      print_domain.reverse()
+      print '.' + '.'.join(print_domain)
+    else:
+      for part in start.keys():
+        self.print_tree(start=start[part], domain=domain + [part])
+
+def main():
+  """Ye Olde Main..."""
+
+  dt = DomainTree()
+  for line in sys.stdin:
+    line = line.rstrip()
+    dt.insert(line)
+  dt.print_tree()
+
+if __name__ == "__main__":
+  main()
+
