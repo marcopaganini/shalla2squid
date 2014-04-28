@@ -1,0 +1,27 @@
+shalla2squid - Convert shallalist format to squid external ACL format.
+
+This is a simple program to convert blacklists from the shallalist format
+(http://www.shallalist.de) into a format which can be readily used by
+the Squid proxy.
+
+The program is smart enough to remove "path duplications" in the lists.
+For example, squid won't like something like this:
+
+  .foo.bar.com
+  .moo.bar.com
+  .bar.com
+
+Because .bar.com already matches anything under the domain bar.com. Squid
+will (sadly) die if these conditions exist in the input files.
+
+The program will also prefix every line in the shalla list with a dot
+(squid requires a dot prefix to mean "everything under this domain".)
+
+Usage:
+  cat BL/<cat1>/domains BL<cat2>/domains... | shalla2squid >shalla_combined
+
+Inside squid, use:
+  acl shalla_combined dstdomain "/etc/squid3/combined"
+  http_access deny shalla_combined
+
+(C) Apr/2014 by Marco Paganini <paganini@paganini.net>
