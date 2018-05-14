@@ -79,7 +79,7 @@ class DomainTree:
     if start == {}:
       print_domain = list(domain)
       print_domain.reverse()
-      print '.' + '.'.join(print_domain)
+      print ('.' + '.'.join(print_domain))
     else:
       for part in start.keys():
         self.print_tree(start=start[part], domain=domain + [part])
